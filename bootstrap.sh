@@ -16,6 +16,7 @@ BOOTSTRAP_SKIP_DARWIN="${BOOTSTRAP_SKIP_DARWIN:-0}"
 BOOTSTRAP_DARWIN_DIR="${BOOTSTRAP_DARWIN_DIR:-$DEFAULT_DARWIN_DIR}"
 BOOTSTRAP_NIXPKGS_INPUT="${BOOTSTRAP_NIXPKGS_INPUT:-$DEFAULT_NIXPKGS_INPUT}"
 BOOTSTRAP_NIX_DARWIN_INPUT="${BOOTSTRAP_NIX_DARWIN_INPUT:-$DEFAULT_NIX_DARWIN_INPUT}"
+BOOTSTRAP_XCODE_CLT_WAIT_SECONDS="${BOOTSTRAP_XCODE_CLT_WAIT_SECONDS:-1800}"
 
 SUDO_KEEPALIVE_PID=""
 
@@ -42,6 +43,8 @@ Environment overrides:
   BOOTSTRAP_WORKSTATION_INPUT  Shared module flake input for generated configs.
   BOOTSTRAP_NIXPKGS_INPUT      nixpkgs input for generated configs.
   BOOTSTRAP_NIX_DARWIN_INPUT   nix-darwin input for generated configs and first switch.
+  BOOTSTRAP_XCODE_CLT_WAIT_SECONDS
+                              Seconds to wait for the Xcode CLT GUI installer. Default: 1800.
   BOOTSTRAP_SKIP_DARWIN=1      Install prerequisites but do not run darwin-rebuild.
   BOOTSTRAP_INSTALL_ROSETTA=1  Install Rosetta on Apple Silicon.
   BOOTSTRAP_RUN_GH_AUTH=1      Run gh auth login if not already authenticated.
@@ -64,6 +67,10 @@ command_exists() {
 
 is_interactive() {
   [ -t 0 ] && [ -t 1 ]
+}
+
+is_ssh_session() {
+  [ -n "${SSH_CONNECTION:-}${SSH_CLIENT:-}${SSH_TTY:-}" ]
 }
 
 confirm() {
@@ -149,23 +156,90 @@ detect_workstation_input() {
   printf '%s' "$DEFAULT_BOOTSTRAP_FLAKE_INPUT"
 }
 
-install_xcode_clt() {
+xcode_clt_installed() {
   if xcode-select -p >/dev/null 2>&1; then
+    return 0
+  fi
+  return 1
+}
+
+wait_for_xcode_clt() {
+  local deadline next_notice
+  deadline=$((SECONDS + BOOTSTRAP_XCODE_CLT_WAIT_SECONDS))
+  next_notice=$SECONDS
+
+  while ! xcode_clt_installed; do
+    if [ "$SECONDS" -ge "$deadline" ]; then
+      die "Xcode Command Line Tools did not become available within ${BOOTSTRAP_XCODE_CLT_WAIT_SECONDS}s. Finish the Apple installer if it is still open, then rerun bootstrap."
+    fi
+
+    if [ "$SECONDS" -ge "$next_notice" ]; then
+      log "Waiting for Xcode Command Line Tools to finish installing. Complete the Apple installer window if it is open."
+      next_notice=$((SECONDS + 30))
+    fi
+
+    sleep 5
+  done
+}
+
+install_xcode_clt_via_softwareupdate() {
+  local marker output product status
+  marker="/tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress"
+
+  log "Looking for Xcode Command Line Tools package via softwareupdate."
+  sudo touch "$marker"
+  output="$(softwareupdate --list 2>&1 || true)"
+  product="$(printf '%s\n' "$output" | awk -F': ' '/Label: Command Line Tools/ { product = $2 } END { print product }')"
+
+  if [ -z "$product" ]; then
+    sudo rm -f "$marker"
+    warn "No Xcode Command Line Tools package was found by softwareupdate."
+    return 1
+  fi
+
+  log "Installing $product."
+  if sudo softwareupdate --install "$product" --verbose; then
+    sudo rm -f "$marker"
+    xcode_clt_installed
+    return
+  fi
+
+  status=$?
+  sudo rm -f "$marker"
+  return "$status"
+}
+
+install_xcode_clt() {
+  local install_output
+
+  if xcode_clt_installed; then
     log "Xcode Command Line Tools are installed."
     return
   fi
 
-  log "Starting Xcode Command Line Tools installation."
-  xcode-select --install >/dev/null 2>&1 || true
-
-  if is_interactive; then
-    printf 'Finish the Xcode Command Line Tools installer, then press Return to continue. '
-    read -r _
-  else
-    die "Xcode Command Line Tools are missing. Run 'xcode-select --install', then rerun bootstrap."
+  if is_ssh_session; then
+    log "SSH session detected; using softwareupdate instead of the GUI installer."
+    if install_xcode_clt_via_softwareupdate; then
+      log "Xcode Command Line Tools are installed."
+      return
+    fi
+    die "Could not install Xcode Command Line Tools over SSH. Log into the Mac desktop and run 'xcode-select --install', or install them from System Settings, then rerun bootstrap."
   fi
 
-  xcode-select -p >/dev/null 2>&1 || die "Xcode Command Line Tools are still missing."
+  log "Starting Xcode Command Line Tools installation."
+  install_output="$(xcode-select --install 2>&1 || true)"
+
+  if [ -n "$install_output" ]; then
+    warn "$install_output"
+  fi
+
+  if is_interactive; then
+    wait_for_xcode_clt
+  else
+    die "Xcode Command Line Tools are missing. Finish the installer if it was launched, then rerun bootstrap."
+  fi
+
+  log "Xcode Command Line Tools are installed."
 }
 
 install_rosetta_if_requested() {
