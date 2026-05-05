@@ -367,6 +367,25 @@ ensure_nix_flakes_for_user() {
   fi
 }
 
+repair_generated_darwin_flake_if_needed() {
+  local flake_file workstation_input tmp
+  flake_file="$1"
+  workstation_input="$2"
+
+  if grep -Eq '^[[:space:]]*workstation\.url[[:space:]]*=[[:space:]]*"path:/?"[[:space:]]*;' "$flake_file"; then
+    log "Repairing invalid workstation input in $flake_file."
+    tmp="$(mktemp)"
+    awk -v workstation_input="$workstation_input" '
+      /^[[:space:]]*workstation\.url[[:space:]]*=[[:space:]]*"path:\/?"[[:space:]]*;/ {
+        print "    workstation.url = \"" workstation_input "\";"
+        next
+      }
+      { print }
+    ' "$flake_file" >"$tmp"
+    mv "$tmp" "$flake_file"
+  fi
+}
+
 write_generated_darwin_flake() {
   local dir host platform user group workstation_input
   dir="$1"
@@ -406,6 +425,7 @@ write_generated_darwin_flake() {
 EOF
   else
     log "$dir/flake.nix already exists; leaving it unchanged."
+    repair_generated_darwin_flake_if_needed "$dir/flake.nix" "$workstation_input"
   fi
 
   if [ ! -f "$dir/configuration.nix" ]; then
