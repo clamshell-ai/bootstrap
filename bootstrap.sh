@@ -16,6 +16,7 @@ BOOTSTRAP_SKIP_DARWIN="${BOOTSTRAP_SKIP_DARWIN:-0}"
 BOOTSTRAP_DARWIN_DIR="${BOOTSTRAP_DARWIN_DIR:-$DEFAULT_DARWIN_DIR}"
 BOOTSTRAP_NIXPKGS_INPUT="${BOOTSTRAP_NIXPKGS_INPUT:-$DEFAULT_NIXPKGS_INPUT}"
 BOOTSTRAP_NIX_DARWIN_INPUT="${BOOTSTRAP_NIX_DARWIN_INPUT:-$DEFAULT_NIX_DARWIN_INPUT}"
+BOOTSTRAP_XCODE_CLT_ALLOW_GUI="${BOOTSTRAP_XCODE_CLT_ALLOW_GUI:-0}"
 BOOTSTRAP_XCODE_CLT_WAIT_SECONDS="${BOOTSTRAP_XCODE_CLT_WAIT_SECONDS:-1800}"
 
 SUDO_KEEPALIVE_PID=""
@@ -43,8 +44,10 @@ Environment overrides:
   BOOTSTRAP_WORKSTATION_INPUT  Shared module flake input for generated configs.
   BOOTSTRAP_NIXPKGS_INPUT      nixpkgs input for generated configs.
   BOOTSTRAP_NIX_DARWIN_INPUT   nix-darwin input for generated configs and first switch.
+  BOOTSTRAP_XCODE_CLT_ALLOW_GUI=1
+                              Allow fallback to Apple's GUI CLT installer.
   BOOTSTRAP_XCODE_CLT_WAIT_SECONDS
-                              Seconds to wait for the Xcode CLT GUI installer. Default: 1800.
+                              Seconds to wait if GUI CLT fallback is enabled. Default: 1800.
   BOOTSTRAP_SKIP_DARWIN=1      Install prerequisites but do not run darwin-rebuild.
   BOOTSTRAP_INSTALL_ROSETTA=1  Install Rosetta on Apple Silicon.
   BOOTSTRAP_RUN_GH_AUTH=1      Run gh auth login if not already authenticated.
@@ -170,11 +173,11 @@ wait_for_xcode_clt() {
 
   while ! xcode_clt_installed; do
     if [ "$SECONDS" -ge "$deadline" ]; then
-      die "Xcode Command Line Tools did not become available within ${BOOTSTRAP_XCODE_CLT_WAIT_SECONDS}s. Finish the Apple installer if it is still open, then rerun bootstrap."
+      die "Xcode Command Line Tools did not become available within ${BOOTSTRAP_XCODE_CLT_WAIT_SECONDS}s. If a macOS installer window is open, finish it there, then rerun bootstrap."
     fi
 
     if [ "$SECONDS" -ge "$next_notice" ]; then
-      log "Waiting for Xcode Command Line Tools to finish installing. Complete the Apple installer window if it is open."
+      log "Waiting for Xcode Command Line Tools. If a macOS installer window is open, complete it there; this terminal will continue automatically."
       next_notice=$((SECONDS + 30))
     fi
 
@@ -218,15 +221,19 @@ install_xcode_clt() {
   fi
 
   if is_ssh_session; then
-    log "SSH session detected; using softwareupdate instead of the GUI installer."
-    if install_xcode_clt_via_softwareupdate; then
-      log "Xcode Command Line Tools are installed."
-      return
-    fi
-    die "Could not install Xcode Command Line Tools over SSH. Log into the Mac desktop and run 'xcode-select --install', or install them from System Settings, then rerun bootstrap."
+    log "SSH session detected."
   fi
 
-  log "Starting Xcode Command Line Tools installation."
+  if install_xcode_clt_via_softwareupdate; then
+    log "Xcode Command Line Tools are installed."
+    return
+  fi
+
+  if [ "$BOOTSTRAP_XCODE_CLT_ALLOW_GUI" != "1" ]; then
+    die "Could not install Xcode Command Line Tools with softwareupdate. To use Apple's GUI installer explicitly, rerun with BOOTSTRAP_XCODE_CLT_ALLOW_GUI=1, or install Command Line Tools manually and rerun bootstrap."
+  fi
+
+  log "Starting Xcode Command Line Tools GUI installer because BOOTSTRAP_XCODE_CLT_ALLOW_GUI=1."
   install_output="$(xcode-select --install 2>&1 || true)"
 
   if [ -n "$install_output" ]; then
@@ -234,9 +241,10 @@ install_xcode_clt() {
   fi
 
   if is_interactive; then
+    log "Use the macOS installer window to complete installation. Do not press anything in this terminal; it is waiting automatically."
     wait_for_xcode_clt
   else
-    die "Xcode Command Line Tools are missing. Finish the installer if it was launched, then rerun bootstrap."
+    die "Xcode Command Line Tools are missing. If a macOS installer window opened, finish it there, then rerun bootstrap."
   fi
 
   log "Xcode Command Line Tools are installed."

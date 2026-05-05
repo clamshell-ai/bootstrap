@@ -49,6 +49,10 @@ Existing `/etc/nix-darwin/flake.nix` and `/etc/nix-darwin/configuration.nix`
 files are left untouched. To use a different nix-darwin configuration, set
 `BOOTSTRAP_DARWIN_FLAKE`.
 
+If Xcode Command Line Tools are missing, bootstrap installs them with
+`softwareupdate`. It does not launch Apple's GUI installer unless explicitly run
+with `BOOTSTRAP_XCODE_CLT_ALLOW_GUI=1`.
+
 ## Layers
 
 `bootstrap.sh` owns first-run prerequisites only. It should stay small,
