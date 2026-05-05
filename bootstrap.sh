@@ -372,11 +372,11 @@ repair_generated_darwin_flake_if_needed() {
   flake_file="$1"
   workstation_input="$2"
 
-  if grep -Eq '^[[:space:]]*workstation\.url[[:space:]]*=[[:space:]]*"path:/?"[[:space:]]*;' "$flake_file"; then
+  if grep -Eq '^[[:space:]]*workstation\.url[[:space:]]*=[[:space:]]*"(path:[^"]*)?"[[:space:]]*;' "$flake_file"; then
     log "Repairing invalid workstation input in $flake_file."
     tmp="$(mktemp)"
     awk -v workstation_input="$workstation_input" '
-      /^[[:space:]]*workstation\.url[[:space:]]*=[[:space:]]*"path:\/?"[[:space:]]*;/ {
+      /^[[:space:]]*workstation\.url[[:space:]]*=[[:space:]]*"(path:[^"]*)?"[[:space:]]*;/ {
         print "    workstation.url = \"" workstation_input "\";"
         next
       }
