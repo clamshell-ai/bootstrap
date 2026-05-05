@@ -65,6 +65,9 @@ preferences should live in the user's own nix-darwin flake.
 
 `home-manager` owns user-level dotfiles, shell setup, editor config, and Git
 config. Users should keep their home-manager flakes in their own dotfiles repo.
+The bootstrap installs `direnv` with Homebrew so it is available immediately;
+users should configure shell hooks and any `nix-direnv` preference in their own
+home-manager setup.
 
 Per-project flakes continue to own project-specific developer tools.
 

@@ -27,13 +27,11 @@
   environment.systemPackages = with pkgs; [
     age
     curl
-    direnv
     gh
     git
     gnupg
     jq
     just
-    nix-direnv
     openssh
     sops
     vim
@@ -48,6 +46,10 @@
       cleanup = lib.mkDefault "none";
       upgrade = lib.mkDefault false;
     };
+
+    brews = [
+      "direnv"
+    ];
 
     casks = [
       "1password"
