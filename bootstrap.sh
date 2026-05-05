@@ -22,7 +22,7 @@ BOOTSTRAP_XCODE_CLT_WAIT_SECONDS="${BOOTSTRAP_XCODE_CLT_WAIT_SECONDS:-1800}"
 SUDO_KEEPALIVE_PID=""
 
 log() {
-  printf '\033[1;34m==>\033[0m %s\n' "$*"
+  printf '\033[1;34m==>\033[0m %s\n' "$*" >&2
 }
 
 warn() {
@@ -146,9 +146,9 @@ detect_workstation_input() {
   fi
 
   local source_path script_dir
-  source_path="${BASH_SOURCE[0]}"
+  source_path="${BASH_SOURCE[0]:-}"
 
-  if [ -f "$source_path" ]; then
+  if [ -n "$source_path" ] && [ -f "$source_path" ]; then
     script_dir="$(cd "$(dirname "$source_path")" && pwd)"
     if [ -f "$script_dir/flake.nix" ] && [ -f "$script_dir/nix/darwin/default.nix" ]; then
       printf 'path:%s' "$script_dir"
