@@ -5,7 +5,7 @@ DEFAULT_BOOTSTRAP_FLAKE_INPUT="github:clamshell-ai/bootstrap"
 DEFAULT_DARWIN_DIR="/etc/nix-darwin"
 DEFAULT_NIXPKGS_INPUT="github:NixOS/nixpkgs/nixpkgs-25.11-darwin"
 DEFAULT_NIX_DARWIN_INPUT="github:nix-darwin/nix-darwin/nix-darwin-25.11"
-BOOTSTRAP_VERSION="2026-05-05.2"
+BOOTSTRAP_VERSION="2026-05-05.3"
 
 BOOTSTRAP_ASSUME_YES="${BOOTSTRAP_ASSUME_YES:-0}"
 BOOTSTRAP_INSTALL_HOMEBREW="${BOOTSTRAP_INSTALL_HOMEBREW:-1}"
@@ -22,6 +22,7 @@ BOOTSTRAP_XCODE_CLT_WAIT_SECONDS="${BOOTSTRAP_XCODE_CLT_WAIT_SECONDS:-1800}"
 BOOTSTRAP_UPDATE_DARWIN_LOCK="${BOOTSTRAP_UPDATE_DARWIN_LOCK:-1}"
 
 SUDO_KEEPALIVE_PID=""
+DARWIN_FLAKE_REF=""
 
 log() {
   printf '\033[1;34m==>\033[0m %s\n' "$*" >&2
@@ -390,6 +391,20 @@ repair_generated_darwin_flake_if_needed() {
   fi
 }
 
+ensure_generated_darwin_ownership() {
+  local dir user group file
+  dir="$1"
+  user="$2"
+  group="$3"
+
+  sudo chown "$user:$group" "$dir"
+  for file in "$dir/flake.nix" "$dir/configuration.nix" "$dir/flake.lock"; do
+    if [ -e "$file" ]; then
+      sudo chown "$user:$group" "$file"
+    fi
+  done
+}
+
 write_generated_darwin_flake() {
   local dir host platform user group workstation_input
   dir="$1"
@@ -400,7 +415,7 @@ write_generated_darwin_flake() {
   workstation_input="$6"
 
   sudo mkdir -p "$dir"
-  sudo chown "$user:$group" "$dir"
+  ensure_generated_darwin_ownership "$dir" "$user" "$group"
 
   if [ ! -f "$dir/flake.nix" ]; then
     log "Creating $dir/flake.nix."
@@ -466,13 +481,15 @@ update_generated_darwin_lock() {
   fi
 
   log "Updating nix-darwin workstation flake input."
-  nix --extra-experimental-features 'nix-command flakes' \
-    flake update workstation --flake "$dir"
+  if ! nix --extra-experimental-features 'nix-command flakes' \
+    flake update workstation --flake "$dir"; then
+    die "Could not update $dir/flake.lock. Check file ownership and rerun bootstrap."
+  fi
 }
 
-darwin_flake_ref() {
+prepare_darwin_flake() {
   if [ -n "${BOOTSTRAP_DARWIN_FLAKE:-}" ]; then
-    printf '%s' "$BOOTSTRAP_DARWIN_FLAKE"
+    DARWIN_FLAKE_REF="$BOOTSTRAP_DARWIN_FLAKE"
     return
   fi
 
@@ -485,7 +502,7 @@ darwin_flake_ref() {
 
   write_generated_darwin_flake "$BOOTSTRAP_DARWIN_DIR" "$host" "$platform" "$user" "$group" "$workstation_input"
   update_generated_darwin_lock "$BOOTSTRAP_DARWIN_DIR"
-  printf '%s#%s' "$BOOTSTRAP_DARWIN_DIR" "$host"
+  DARWIN_FLAKE_REF="$BOOTSTRAP_DARWIN_DIR#$host"
 }
 
 run_darwin_rebuild() {
@@ -495,7 +512,8 @@ run_darwin_rebuild() {
   fi
 
   local flake_ref darwin_rebuild nix_bin
-  flake_ref="$(darwin_flake_ref)"
+  prepare_darwin_flake
+  flake_ref="$DARWIN_FLAKE_REF"
 
   log "Activating nix-darwin with $flake_ref."
 
