@@ -5,6 +5,7 @@ DEFAULT_BOOTSTRAP_FLAKE_INPUT="github:clamshell-ai/bootstrap"
 DEFAULT_DARWIN_DIR="/etc/nix-darwin"
 DEFAULT_NIXPKGS_INPUT="github:NixOS/nixpkgs/nixpkgs-25.11-darwin"
 DEFAULT_NIX_DARWIN_INPUT="github:nix-darwin/nix-darwin/nix-darwin-25.11"
+BOOTSTRAP_VERSION="2026-05-05.1"
 
 BOOTSTRAP_ASSUME_YES="${BOOTSTRAP_ASSUME_YES:-0}"
 BOOTSTRAP_INSTALL_HOMEBREW="${BOOTSTRAP_INSTALL_HOMEBREW:-1}"
@@ -534,6 +535,7 @@ main() {
 
   require_macos
   require_non_root_user
+  log "Running workstation bootstrap $BOOTSTRAP_VERSION."
   require_sudo
   install_xcode_clt
   install_rosetta_if_requested
