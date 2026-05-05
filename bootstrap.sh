@@ -5,7 +5,7 @@ DEFAULT_BOOTSTRAP_FLAKE_INPUT="github:clamshell-ai/bootstrap"
 DEFAULT_DARWIN_DIR="/etc/nix-darwin"
 DEFAULT_NIXPKGS_INPUT="github:NixOS/nixpkgs/nixpkgs-25.11-darwin"
 DEFAULT_NIX_DARWIN_INPUT="github:nix-darwin/nix-darwin/nix-darwin-25.11"
-BOOTSTRAP_VERSION="2026-05-05.1"
+BOOTSTRAP_VERSION="2026-05-05.2"
 
 BOOTSTRAP_ASSUME_YES="${BOOTSTRAP_ASSUME_YES:-0}"
 BOOTSTRAP_INSTALL_HOMEBREW="${BOOTSTRAP_INSTALL_HOMEBREW:-1}"
@@ -19,6 +19,7 @@ BOOTSTRAP_NIXPKGS_INPUT="${BOOTSTRAP_NIXPKGS_INPUT:-$DEFAULT_NIXPKGS_INPUT}"
 BOOTSTRAP_NIX_DARWIN_INPUT="${BOOTSTRAP_NIX_DARWIN_INPUT:-$DEFAULT_NIX_DARWIN_INPUT}"
 BOOTSTRAP_XCODE_CLT_ALLOW_GUI="${BOOTSTRAP_XCODE_CLT_ALLOW_GUI:-0}"
 BOOTSTRAP_XCODE_CLT_WAIT_SECONDS="${BOOTSTRAP_XCODE_CLT_WAIT_SECONDS:-1800}"
+BOOTSTRAP_UPDATE_DARWIN_LOCK="${BOOTSTRAP_UPDATE_DARWIN_LOCK:-1}"
 
 SUDO_KEEPALIVE_PID=""
 
@@ -49,6 +50,8 @@ Environment overrides:
                               Allow fallback to Apple's GUI CLT installer.
   BOOTSTRAP_XCODE_CLT_WAIT_SECONDS
                               Seconds to wait if GUI CLT fallback is enabled. Default: 1800.
+  BOOTSTRAP_UPDATE_DARWIN_LOCK=0
+                              Do not update the generated nix-darwin workstation lock.
   BOOTSTRAP_SKIP_DARWIN=1      Install prerequisites but do not run darwin-rebuild.
   BOOTSTRAP_INSTALL_ROSETTA=1  Install Rosetta on Apple Silicon.
   BOOTSTRAP_RUN_GH_AUTH=1      Run gh auth login if not already authenticated.
@@ -453,6 +456,20 @@ EOF
   fi
 }
 
+update_generated_darwin_lock() {
+  local dir
+  dir="$1"
+
+  if [ "$BOOTSTRAP_UPDATE_DARWIN_LOCK" != "1" ]; then
+    log "Skipping nix-darwin workstation lock update."
+    return
+  fi
+
+  log "Updating nix-darwin workstation flake input."
+  nix --extra-experimental-features 'nix-command flakes' \
+    flake update workstation --flake "$dir"
+}
+
 darwin_flake_ref() {
   if [ -n "${BOOTSTRAP_DARWIN_FLAKE:-}" ]; then
     printf '%s' "$BOOTSTRAP_DARWIN_FLAKE"
@@ -467,6 +484,7 @@ darwin_flake_ref() {
   workstation_input="$(detect_workstation_input)"
 
   write_generated_darwin_flake "$BOOTSTRAP_DARWIN_DIR" "$host" "$platform" "$user" "$group" "$workstation_input"
+  update_generated_darwin_lock "$BOOTSTRAP_DARWIN_DIR"
   printf '%s#%s' "$BOOTSTRAP_DARWIN_DIR" "$host"
 }
 
