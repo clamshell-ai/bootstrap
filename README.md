@@ -53,6 +53,10 @@ If Xcode Command Line Tools are missing, bootstrap installs them with
 `softwareupdate`. It does not launch Apple's GUI installer unless explicitly run
 with `BOOTSTRAP_XCODE_CLT_ALLOW_GUI=1`.
 
+Bootstrap loads Homebrew into the current shell while it runs. After
+nix-darwin activation, `homebrew.enableZshIntegration` makes Homebrew available
+in new zsh sessions without appending to user-managed dotfiles.
+
 ## Layers
 
 `bootstrap.sh` owns first-run prerequisites only. It should stay small,

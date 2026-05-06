@@ -40,6 +40,7 @@
 
   homebrew = {
     enable = lib.mkDefault true;
+    enableZshIntegration = lib.mkDefault true;
 
     onActivation = {
       autoUpdate = lib.mkDefault true;
