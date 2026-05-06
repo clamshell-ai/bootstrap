@@ -53,9 +53,9 @@ If Xcode Command Line Tools are missing, bootstrap installs them with
 `softwareupdate`. It does not launch Apple's GUI installer unless explicitly run
 with `BOOTSTRAP_XCODE_CLT_ALLOW_GUI=1`.
 
-Bootstrap loads Homebrew into the current shell while it runs. After
-nix-darwin activation, `homebrew.enableZshIntegration` makes Homebrew available
-in new zsh sessions without appending to user-managed dotfiles.
+Bootstrap loads Homebrew into the current shell while it runs. Persistent shell
+configuration should be managed by the user's dotfiles or home-manager config;
+bootstrap does not append to user-managed shell files.
 
 Some Homebrew casks run privileged macOS package installers and may prompt for
 your password during `darwin-rebuild` with a bare `Password:` prompt. Tailscale

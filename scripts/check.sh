@@ -9,4 +9,6 @@ fi
 
 if command -v nix >/dev/null 2>&1; then
   nix --extra-experimental-features 'nix-command flakes' flake check --all-systems "path:$PWD"
+  nix --extra-experimental-features 'nix-command flakes' eval "path:$PWD#darwinConfigurations.bootstrap-aarch64.config.system.build.toplevel.drvPath"
+  nix --extra-experimental-features 'nix-command flakes' eval "path:$PWD#darwinConfigurations.bootstrap-x86_64.config.system.build.toplevel.drvPath"
 fi
