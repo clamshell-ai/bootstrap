@@ -59,7 +59,6 @@
       "docker-desktop"
       "google-chrome"
       "google-drive"
-      "tailscale-app"
     ];
   };
 

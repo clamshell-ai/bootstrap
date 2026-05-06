@@ -57,6 +57,11 @@ Bootstrap loads Homebrew into the current shell while it runs. After
 nix-darwin activation, `homebrew.enableZshIntegration` makes Homebrew available
 in new zsh sessions without appending to user-managed dotfiles.
 
+Some Homebrew casks run privileged macOS package installers and may prompt for
+your password during `darwin-rebuild` with a bare `Password:` prompt. Tailscale
+is intentionally not managed by this bootstrap because its macOS installer owns
+VPN/system extension state and does not behave like a simple idempotent cask.
+
 ## Layers
 
 `bootstrap.sh` owns first-run prerequisites only. It should stay small,

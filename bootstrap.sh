@@ -5,7 +5,7 @@ DEFAULT_BOOTSTRAP_FLAKE_INPUT="github:clamshell-ai/bootstrap"
 DEFAULT_DARWIN_DIR="/etc/nix-darwin"
 DEFAULT_NIXPKGS_INPUT="github:NixOS/nixpkgs/nixpkgs-25.11-darwin"
 DEFAULT_NIX_DARWIN_INPUT="github:nix-darwin/nix-darwin/nix-darwin-25.11"
-BOOTSTRAP_VERSION="2026-05-05.3"
+BOOTSTRAP_VERSION="2026-05-05.4"
 
 BOOTSTRAP_ASSUME_YES="${BOOTSTRAP_ASSUME_YES:-0}"
 BOOTSTRAP_INSTALL_HOMEBREW="${BOOTSTRAP_INSTALL_HOMEBREW:-1}"
@@ -516,6 +516,7 @@ run_darwin_rebuild() {
   flake_ref="$DARWIN_FLAKE_REF"
 
   log "Activating nix-darwin with $flake_ref."
+  log "Homebrew cask installers may ask for your password using bare 'Password:' prompts during activation."
 
   if darwin_rebuild="$(command -v darwin-rebuild 2>/dev/null)"; then
     sudo -H "$darwin_rebuild" switch --flake "$flake_ref"
